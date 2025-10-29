@@ -1,73 +1,198 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-// Komponen untuk menambah event baru
 function FormTambahEvent({ onTambahEvent }) {
   // State untuk menyimpan data form
   const [formData, setFormData] = useState({
     nama: "",
+    deskripsi: "",
     tanggal: "",
+    waktu: "",
     lokasi: "",
+    kategori: "seminar"
   });
+
+  // State untuk validasi
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Validasi form
+  const validateForm = () => {
+    const newErrors = {};
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (!formData.nama.trim()) {
+      newErrors.nama = 'Nama event harus diisi';
+    } else if (formData.nama.length < 5) {
+      newErrors.nama = 'Nama event minimal 5 karakter';
+    }
+    
+    if (!formData.deskripsi.trim()) {
+      newErrors.deskripsi = 'Deskripsi harus diisi';
+    } else if (formData.deskripsi.length < 20) {
+      newErrors.deskripsi = 'Deskripsi minimal 20 karakter';
+    }
+    
+    if (!formData.tanggal) {
+      newErrors.tanggal = 'Tanggal harus diisi';
+    } else if (formData.tanggal < today) {
+      newErrors.tanggal = 'Tanggal tidak boleh di masa lalu';
+    }
+    
+    if (!formData.waktu) {
+      newErrors.waktu = 'Waktu harus diisi';
+    }
+    
+    if (!formData.lokasi.trim()) {
+      newErrors.lokasi = 'Lokasi harus diisi';
+    }
+    
+    return newErrors;
+  };
 
   // Handler untuk perubahan input
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
     }));
+    
+    // Clear error saat user mulai mengetik
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
   // Handler untuk submit form
   const handleSubmit = (e) => {
     e.preventDefault();
-    onTambahEvent(formData);
-    // Reset form setelah submit
-    setFormData({
-      nama: "",
-      tanggal: "",
-      lokasi: "",
-    });
+    const formErrors = validateForm();
+    
+    if (Object.keys(formErrors).length === 0) {
+      setIsSubmitting(true);
+      // Simulasikan API call
+      setTimeout(() => {
+        onTambahEvent(formData);
+        // Reset form
+        setFormData({
+          nama: "",
+          deskripsi: "",
+          tanggal: "",
+          waktu: "",
+          lokasi: "",
+          kategori: "seminar"
+        });
+        setIsSubmitting(false);
+        alert('Event berhasil ditambahkan!');
+      }, 1000);
+    } else {
+      setErrors(formErrors);
+    }
   };
 
   return (
-    <div className="form-tambah-event">
-      <h2>Tambah Event Baru</h2>
-      <form onSubmit={handleSubmit}>
+    <div className="form-container">
+      <h2>📝 Tambah Event Baru</h2>
+      <form onSubmit={handleSubmit} className="event-form">
         <div className="form-group">
-          <label htmlFor="nama">Nama Event:</label>
+          <label htmlFor="nama">Nama Event*</label>
           <input
             type="text"
             id="nama"
             name="nama"
             value={formData.nama}
             onChange={handleChange}
-            required
+            className={errors.nama ? 'error' : ''}
+            placeholder="Contoh: Seminar Teknologi Terkini"
           />
+          {errors.nama && <span className="error-message">{errors.nama}</span>}
         </div>
+        
         <div className="form-group">
-          <label htmlFor="tanggal">Tanggal:</label>
-          <input
-            type="date"
-            id="tanggal"
-            name="tanggal"
-            value={formData.tanggal}
+          <label htmlFor="deskripsi">Deskripsi*</label>
+          <textarea
+            id="deskripsi"
+            name="deskripsi"
+            value={formData.deskripsi}
             onChange={handleChange}
-            required
-          />
+            rows="4"
+            className={errors.deskripsi ? 'error' : ''}
+            placeholder="Jelaskan detail acara secara lengkap..."
+          ></textarea>
+          {errors.deskripsi && <span className="error-message">{errors.deskripsi}</span>}
         </div>
-        <div className="form-group">
-          <label htmlFor="lokasi">Lokasi:</label>
-          <input
-            type="text"
-            id="lokasi"
-            name="lokasi"
-            value={formData.lokasi}
-            onChange={handleChange}
-            required
-          />
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="tanggal">Tanggal*</label>
+            <input
+              type="date"
+              id="tanggal"
+              name="tanggal"
+              value={formData.tanggal}
+              onChange={handleChange}
+              className={errors.tanggal ? 'error' : ''}
+              min={new Date().toISOString().split('T')[0]}
+            />
+            {errors.tanggal && <span className="error-message">{errors.tanggal}</span>}
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="waktu">Waktu*</label>
+            <input
+              type="time"
+              id="waktu"
+              name="waktu"
+              value={formData.waktu}
+              onChange={handleChange}
+              className={errors.waktu ? 'error' : ''}
+            />
+            {errors.waktu && <span className="error-message">{errors.waktu}</span>}
+          </div>
         </div>
-        <button type="submit">Tambah Event</button>
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="lokasi">Lokasi*</label>
+            <input
+              type="text"
+              id="lokasi"
+              name="lokasi"
+              value={formData.lokasi}
+              onChange={handleChange}
+              className={errors.lokasi ? 'error' : ''}
+              placeholder="Contoh: Aula Utama Kampus"
+            />
+            {errors.lokasi && <span className="error-message">{errors.lokasi}</span>}
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="kategori">Kategori*</label>
+            <select
+              id="kategori"
+              name="kategori"
+              value={formData.kategori}
+              onChange={handleChange}
+            >
+              <option value="seminar">Seminar</option>
+              <option value="workshop">Workshop</option>
+              <option value="lomba">Lomba</option>
+              <option value="pelatihan">Pelatihan</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+        </div>
+        
+        <button 
+          type="submit" 
+          className="submit-button"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Menambahkan...' : 'Tambah Event'}
+        </button>
       </form>
     </div>
   );
