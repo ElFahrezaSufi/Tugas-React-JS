@@ -28,8 +28,11 @@ function DaftarEvent({ events, onHapusEvent }) {
     return tanggal >= today ? 'mendatang' : 'selesai';
   };
 
-  // Dapatkan class CSS berdasarkan kategori
+  // Dapatkan class CSS berdasarkan kategori (case insensitive)
   const getKategoriClass = (kategori) => {
+    if (!kategori) return 'kategori-lainnya';
+    
+    const kategoriLower = kategori.toLowerCase();
     const kategoriMap = {
       'seminar': 'kategori-seminar',
       'workshop': 'kategori-workshop',
@@ -37,7 +40,7 @@ function DaftarEvent({ events, onHapusEvent }) {
       'pelatihan': 'kategori-pelatihan',
       'lainnya': 'kategori-lainnya'
     };
-    return kategoriMap[kategori] || 'kategori-lainnya';
+    return kategoriMap[kategoriLower] || 'kategori-lainnya';
   };
 
   // Tampilkan pesan jika tidak ada event
