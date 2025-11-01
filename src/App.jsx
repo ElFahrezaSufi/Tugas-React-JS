@@ -11,7 +11,16 @@ const cekStatusEvent = (tanggal, waktu = "00:00") => {
   const [year, month, day] = tanggal.split("-").map(Number);
   const [hours, minutes] = waktu.split(":").map(Number);
   const eventDate = new Date(year, month - 1, day, hours, minutes);
-  return now < eventDate ? "mendatang" : "selesai";
+  
+  return {
+    status: now < eventDate ? "mendatang" : "selesai",
+    // Waktu tersisa dalam milidetik sampai event berubah status
+    timeUntilStatusChange: Math.max(0, now < eventDate ? 
+      eventDate - now : 
+      // If event is in the past, return a very large number
+      Number.MAX_SAFE_INTEGER
+    )
+  };
 };
 
 function App() {
@@ -70,38 +79,60 @@ function App() {
     }
   }, []);
 
-  // Filter event berdasarkan pencarian, kategori, dan status
+  // State untuk memaksa update komponen ketika status event berubah
+  const [statusUpdateTrigger, setStatusUpdateTrigger] = useState(0);
+
+  // Filter events berdasarkan pencarian, kategori, dan status
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
-      const matchesSearch =
-        event.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.deskripsi.toLowerCase().includes(searchTerm.toLowerCase());
-
+      const matchesSearch = event.nama
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
       const matchesKategori =
         filterKategori === "semua" ||
         event.kategori.toLowerCase() === filterKategori.toLowerCase();
 
-      const status = cekStatusEvent(event.tanggal, event.waktu);
-      const matchesStatus = filterStatus === "semua" || status === filterStatus;
+      const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
+      const matchesStatus = filterStatus === "semua" || statusInfo.status === filterStatus;
 
       return matchesSearch && matchesKategori && matchesStatus;
     });
-  }, [events, searchTerm, filterKategori, filterStatus]);
+  }, [events, searchTerm, filterKategori, filterStatus, statusUpdateTrigger]);
+
+  // Effect untuk mengupdate status event secara real-time
+  useEffect(() => {
+    // Cari event terdekat yang akan berubah status
+    const now = new Date();
+    const nextUpdates = events.map(event => {
+      const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
+      return statusInfo.timeUntilStatusChange;
+    }).filter(time => time > 0 && time < Number.MAX_SAFE_INTEGER);
+
+    if (nextUpdates.length > 0) {
+      const nextUpdate = Math.min(...nextUpdates);
+      const timer = setTimeout(() => {
+        setStatusUpdateTrigger(prev => prev + 1);
+      }, nextUpdate);
+
+      return () => clearTimeout(timer);
+    }
+  }, [events, statusUpdateTrigger]);
 
   // Fungsi untuk menghitung statistik
   const hitungStatistik = (eventsList) => {
     const total = eventsList.length;
-    const now = new Date();
-
+    
     const { mendatang, selesai } = eventsList.reduce(
       (acc, event) => {
-        const eventDate = new Date(
-          `${event.tanggal}T${event.waktu || "00:00"}:00`
-        );
-        if (now < eventDate) {
-          acc.mendatang += 1;
-        } else {
-          acc.selesai += 1;
+        try {
+          const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
+          if (statusInfo.status === 'mendatang') {
+            acc.mendatang += 1;
+          } else {
+            acc.selesai += 1;
+          }
+        } catch (error) {
+          console.error('Error processing event:', event, error);
         }
         return acc;
       },
@@ -114,18 +145,23 @@ function App() {
   // State untuk statistik
   const [statistik, setStatistik] = useState(() => hitungStatistik(events));
 
-  // Update statistik ketika events berubah atau setiap menit
+  // Update statistik ketika events berubah atau status update dipicu
   useEffect(() => {
-    // Update statistik
-    setStatistik(hitungStatistik(events));
+    const newStats = hitungStatistik(events);
+    setStatistik(prev => {
+      // Only update if stats actually changed
+      return JSON.stringify(prev) !== JSON.stringify(newStats) ? newStats : prev;
+    });
+  }, [events, statusUpdateTrigger]); // Add statusUpdateTrigger as dependency
 
-    // Set interval untuk update otomatis setiap menit
+  // Effect untuk update periodik (setiap menit) sebagai fallback
+  useEffect(() => {
     const interval = setInterval(() => {
-      setStatistik(hitungStatistik(events));
+      setStatusUpdateTrigger(prev => prev + 1);
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [events]);
+  }, []);
 
   return (
     <div className="app-container">
