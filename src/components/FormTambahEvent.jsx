@@ -32,10 +32,29 @@ function FormTambahEvent({ onTambahEvent }) {
       newErrors.deskripsi = "Deskripsi minimal 20 karakter";
     }
 
+    // Get current date in local timezone (YYYY-MM-DD format)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const currentDate = `${year}-${month}-${day}`;
+    
+    // Get current time in HH:MM format
+    const currentHours = String(now.getHours()).padStart(2, '0');
+    const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+    const currentTime = `${currentHours}:${currentMinutes}`;
+    
     if (!formData.tanggal) {
       newErrors.tanggal = "Tanggal harus diisi";
-    } else if (formData.tanggal < today) {
+    } else if (formData.tanggal < currentDate) {
       newErrors.tanggal = "Tanggal tidak boleh di masa lalu";
+    } else if (formData.tanggal === currentDate) {
+      // If selected date is today, check if time is in the future
+      if (!formData.waktu) {
+        newErrors.waktu = "Waktu harus diisi";
+      } else if (formData.waktu <= currentTime) {
+        newErrors.waktu = "Waktu harus di masa depan";
+      }
     }
 
     if (!formData.waktu) {
@@ -136,8 +155,15 @@ function FormTambahEvent({ onTambahEvent }) {
               name="tanggal"
               value={formData.tanggal}
               onChange={handleChange}
-              className={errors.tanggal ? "error" : ""}
-              min={new Date().toISOString().split("T")[0]}
+              className={`form-input ${errors.tanggal ? "input-error" : ""}`}
+              required
+              min={(() => {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const day = String(today.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+              })()}
             />
             {errors.tanggal && (
               <span className="error-message">{errors.tanggal}</span>
