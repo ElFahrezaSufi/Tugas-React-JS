@@ -1,46 +1,69 @@
-import { useState, useEffect } from 'react';
-import { FaTrash, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaInfoCircle } from 'react-icons/fa';
+import { useState, useEffect, useCallback } from "react";
+import {
+  FaTrash,
+  FaCalendarAlt,
+  FaMapMarkerAlt,
+  FaClock,
+  FaInfoCircle,
+} from "react-icons/fa";
 
 // Komponen untuk menampilkan daftar event
 function DaftarEvent({ events, onHapusEvent }) {
   const [filteredEvents, setFilteredEvents] = useState(events);
-  
+
+  // Fungsi untuk memeriksa status event
+  const getStatusEvent = useCallback((tanggal, waktu = "00:00") => {
+    const now = new Date();
+    const [year, month, day] = tanggal.split("-").map(Number);
+    const [hours, minutes] = waktu.split(":").map(Number);
+    const eventDate = new Date(year, month - 1, day, hours, minutes);
+    return now < eventDate ? "mendatang" : "selesai";
+  }, []);
+
   // Update filtered events when events prop changes
   useEffect(() => {
     setFilteredEvents(events);
   }, [events]);
 
+  // Auto-update status event setiap menit
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFilteredEvents((prevEvents) => [...prevEvents]); // Memicu re-render
+    }, 60000); // Setiap 1 menit
+
+    return () => clearInterval(interval); // Cleanup
+  }, []);
+
   // Format tanggal ke format Indonesia
   const formatTanggal = (dateString) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
+    const options = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    };
+    return new Date(dateString).toLocaleDateString("id-ID", options);
   };
 
   // Format waktu ke format 24 jam
   const formatWaktu = (timeString) => {
-    if (!timeString) return '';
+    if (!timeString) return "";
     return timeString.substring(0, 5); // Ambil hanya jam dan menit
-  };
-
-  // Tentukan status event (mendatang/sudah lewat)
-  const getStatusEvent = (tanggal) => {
-    const today = new Date().toISOString().split('T')[0];
-    return tanggal >= today ? 'mendatang' : 'selesai';
   };
 
   // Dapatkan class CSS berdasarkan kategori (case insensitive)
   const getKategoriClass = (kategori) => {
-    if (!kategori) return 'kategori-lainnya';
-    
+    if (!kategori) return "kategori-lainnya";
+
     const kategoriLower = kategori.toLowerCase();
     const kategoriMap = {
-      'seminar': 'kategori-seminar',
-      'workshop': 'kategori-workshop',
-      'lomba': 'kategori-lomba',
-      'pelatihan': 'kategori-pelatihan',
-      'lainnya': 'kategori-lainnya'
+      seminar: "kategori-seminar",
+      workshop: "kategori-workshop",
+      lomba: "kategori-lomba",
+      pelatihan: "kategori-pelatihan",
+      lainnya: "kategori-lainnya",
     };
-    return kategoriMap[kategoriLower] || 'kategori-lainnya';
+    return kategoriMap[kategoriLower] || "kategori-lainnya";
   };
 
   // Tampilkan pesan jika tidak ada event
@@ -60,18 +83,23 @@ function DaftarEvent({ events, onHapusEvent }) {
     <div className="daftar-event">
       <h2>📅 Daftar Event Kampus</h2>
       <p className="total-event">Menampilkan {filteredEvents.length} event</p>
-      
+
       <div className="event-grid">
         {filteredEvents.map((event) => (
-          <div 
-            key={event.id} 
-            className={`event-card ${getStatusEvent(event.tanggal)}`}
+          <div
+            key={event.id}
+            className={`event-card ${getStatusEvent(
+              event.tanggal,
+              event.waktu
+            )}`}
           >
             <div className="event-header">
-              <span className={`kategori-badge ${getKategoriClass(event.kategori)}`}>
+              <span
+                className={`kategori-badge ${getKategoriClass(event.kategori)}`}
+              >
                 {event.kategori}
               </span>
-              <button 
+              <button
                 className="hapus-button"
                 onClick={() => onHapusEvent(event.id)}
                 aria-label="Hapus event"
@@ -79,34 +107,41 @@ function DaftarEvent({ events, onHapusEvent }) {
                 <FaTrash />
               </button>
             </div>
-            
+
             <div className="event-body">
               <h3 className="event-judul">{event.nama}</h3>
               <p className="event-deskripsi">{event.deskripsi}</p>
-              
+
               <div className="event-detail">
                 <div className="detail-item">
                   <FaCalendarAlt className="detail-icon" />
                   <span>{formatTanggal(event.tanggal)}</span>
                 </div>
-                
+
                 {event.waktu && (
                   <div className="detail-item">
                     <FaClock className="detail-icon" />
                     <span>{formatWaktu(event.waktu)} WIB</span>
                   </div>
                 )}
-                
+
                 <div className="detail-item">
                   <FaMapMarkerAlt className="detail-icon" />
                   <span>{event.lokasi}</span>
                 </div>
               </div>
             </div>
-            
+
             <div className="event-footer">
-              <span className={`status-badge ${getStatusEvent(event.tanggal)}`}>
-                {getStatusEvent(event.tanggal) === 'mendatang' ? 'Mendatang' : 'Selesai'}
+              <span
+                className={`status-badge ${getStatusEvent(
+                  event.tanggal,
+                  event.waktu
+                )}`}
+              >
+                {getStatusEvent(event.tanggal, event.waktu) === "mendatang"
+                  ? "Mendatang"
+                  : "Selesai"}
               </span>
             </div>
           </div>

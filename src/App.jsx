@@ -1,32 +1,53 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import "./App.css";
 import DaftarEvent from "./components/DaftarEvent";
 import FormTambahEvent from "./components/FormTambahEvent";
 import StatistikEvent from "./components/StatistikEvent";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
+
+// Fungsi helper untuk memeriksa status event
+const cekStatusEvent = (tanggal, waktu = "00:00") => {
+  const now = new Date();
+  const [year, month, day] = tanggal.split("-").map(Number);
+  const [hours, minutes] = waktu.split(":").map(Number);
+  const eventDate = new Date(year, month - 1, day, hours, minutes);
+  return now < eventDate ? "mendatang" : "selesai";
+};
 
 function App() {
-  // State untuk menyimpan daftar event
-  const [events, setEvents] = useState([
-    {
-      id: uuidv4(),
-      nama: "Seminar Teknologi",
-      deskripsi: "Seminar tentang perkembangan teknologi terbaru di dunia IT",
-      tanggal: "2025-11-01",
-      waktu: "09:00",
-      lokasi: "Aula Utama",
-      kategori: "Seminar",
-    },
-    {
-      id: uuidv4(),
-      nama: "Workshop Programming",
-      deskripsi: "Belajar dasar-dasar pemrograman untuk pemula",
-      tanggal: "2025-11-15",
-      waktu: "13:00",
-      lokasi: "Lab Komputer",
-      kategori: "Workshop",
-    },
-  ]);
+  // Load events from localStorage on initial render
+  const [events, setEvents] = useState(() => {
+    const savedEvents = localStorage.getItem("events");
+    if (savedEvents) {
+      return JSON.parse(savedEvents);
+    }
+    // Default events jika belum ada data di localStorage
+    return [
+      {
+        id: uuidv4(),
+        nama: "Seminar Teknologi",
+        deskripsi: "Seminar tentang perkembangan teknologi terbaru di dunia IT",
+        tanggal: "2025-11-01",
+        waktu: "09:00",
+        lokasi: "Aula Utama",
+        kategori: "Seminar",
+      },
+      {
+        id: uuidv4(),
+        nama: "Workshop Programming",
+        deskripsi: "Belajar dasar-dasar pemrograman untuk pemula",
+        tanggal: "2025-11-15",
+        waktu: "13:00",
+        lokasi: "Lab Komputer",
+        kategori: "Workshop",
+      },
+    ];
+  });
+
+  // Simpan ke localStorage setiap kali events berubah
+  useEffect(() => {
+    localStorage.setItem("events", JSON.stringify(events));
+  }, [events]);
 
   // State untuk pencarian dan filter
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,52 +55,76 @@ function App() {
   const [filterStatus, setFilterStatus] = useState("semua");
 
   // Fungsi untuk menambah event baru
-  const handleTambahEvent = (newEvent) => {
+  const handleTambahEvent = useCallback((newEvent) => {
     const eventDenganId = {
       ...newEvent,
       id: uuidv4(),
     };
-    setEvents([...events, eventDenganId]);
-  };
+    setEvents((prevEvents) => [...prevEvents, eventDenganId]);
+  }, []);
 
   // Fungsi untuk menghapus event
-  const handleHapusEvent = (id) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus event ini?')) {
-      setEvents(events.filter(event => event.id !== id));
+  const handleHapusEvent = useCallback((id) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus event ini?")) {
+      setEvents((prevEvents) => prevEvents.filter((event) => event.id !== id));
     }
-  };
+  }, []);
 
-  // Filter dan pencarian event
+  // Filter event berdasarkan pencarian, kategori, dan status
   const filteredEvents = useMemo(() => {
-    return events.filter(event => {
-      const matchesSearch = event.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.deskripsi.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesKategori = filterKategori === "semua" || 
-                            event.kategori.toLowerCase() === filterKategori.toLowerCase();
-      
-      const today = new Date().toISOString().split('T')[0];
-      const eventDate = event.tanggal;
-      let matchesStatus = true;
-      
-      if (filterStatus === 'mendatang') {
-        matchesStatus = eventDate >= today;
-      } else if (filterStatus === 'selesai') {
-        matchesStatus = eventDate < today;
-      }
-      
+    return events.filter((event) => {
+      const matchesSearch =
+        event.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.deskripsi.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesKategori =
+        filterKategori === "semua" ||
+        event.kategori.toLowerCase() === filterKategori.toLowerCase();
+
+      const status = cekStatusEvent(event.tanggal, event.waktu);
+      const matchesStatus = filterStatus === "semua" || status === filterStatus;
+
       return matchesSearch && matchesKategori && matchesStatus;
     });
   }, [events, searchTerm, filterKategori, filterStatus]);
 
-  // Hitung statistik
-  const statistik = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const total = events.length;
-    const mendatang = events.filter(event => event.tanggal >= today).length;
-    const selesai = events.filter(event => event.tanggal < today).length;
-    
+  // Fungsi untuk menghitung statistik
+  const hitungStatistik = (eventsList) => {
+    const total = eventsList.length;
+    const now = new Date();
+
+    const { mendatang, selesai } = eventsList.reduce(
+      (acc, event) => {
+        const eventDate = new Date(
+          `${event.tanggal}T${event.waktu || "00:00"}:00`
+        );
+        if (now < eventDate) {
+          acc.mendatang += 1;
+        } else {
+          acc.selesai += 1;
+        }
+        return acc;
+      },
+      { mendatang: 0, selesai: 0 }
+    );
+
     return { total, mendatang, selesai };
+  };
+
+  // State untuk statistik
+  const [statistik, setStatistik] = useState(() => hitungStatistik(events));
+
+  // Update statistik ketika events berubah atau setiap menit
+  useEffect(() => {
+    // Update statistik
+    setStatistik(hitungStatistik(events));
+
+    // Set interval untuk update otomatis setiap menit
+    const interval = setInterval(() => {
+      setStatistik(hitungStatistik(events));
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, [events]);
 
   return (
@@ -104,9 +149,9 @@ function App() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          
+
           <div className="filter-group">
-            <select 
+            <select
               className="filter-select"
               value={filterKategori}
               onChange={(e) => setFilterKategori(e.target.value)}
@@ -119,7 +164,7 @@ function App() {
               <option value="lainnya">Lainnya</option>
             </select>
 
-            <select 
+            <select
               className="filter-select"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -132,10 +177,7 @@ function App() {
         </div>
 
         {/* Komponen Daftar Event */}
-        <DaftarEvent 
-          events={filteredEvents} 
-          onHapusEvent={handleHapusEvent} 
-        />
+        <DaftarEvent events={filteredEvents} onHapusEvent={handleHapusEvent} />
       </main>
 
       <footer className="app-footer">
