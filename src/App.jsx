@@ -3,6 +3,7 @@ import "./App.css";
 import DaftarEvent from "./components/DaftarEvent";
 import FormTambahEvent from "./components/FormTambahEvent";
 import StatistikEvent from "./components/StatistikEvent";
+import DetailEvent from "./components/DetailEvent";
 import { v4 as uuidv4 } from "uuid";
 
 // Fungsi helper untuk memeriksa status event
@@ -62,6 +63,10 @@ function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterKategori, setFilterKategori] = useState("semua");
   const [filterStatus, setFilterStatus] = useState("semua");
+  
+  // State untuk manajemen event yang sedang dilihat/diedit
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [eventToEdit, setEventToEdit] = useState(null);
 
   // Fungsi untuk menambah event baru
   const handleTambahEvent = useCallback((newEvent) => {
@@ -70,6 +75,33 @@ function App() {
       id: uuidv4(),
     };
     setEvents((prevEvents) => [...prevEvents, eventDenganId]);
+  }, []);
+
+  // Fungsi untuk mengupdate event yang ada
+  const handleUpdateEvent = useCallback((updatedEvent) => {
+    setEvents((prevEvents) =>
+      prevEvents.map((event) =>
+        event.id === updatedEvent.id ? updatedEvent : event
+      )
+    );
+    setEventToEdit(null); // Keluar dari mode edit
+  }, []);
+
+  // Fungsi untuk melihat detail event
+  const handleViewDetail = useCallback((event) => {
+    setSelectedEvent(event);
+  }, []);
+
+  // Fungsi untuk memulai mode edit
+  const handleEditEvent = useCallback((event) => {
+    setEventToEdit(event);
+    // Scroll ke form edit
+    document.getElementById('form-event').scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  // Fungsi untuk membatalkan edit
+  const handleCancelEdit = useCallback(() => {
+    setEventToEdit(null);
   }, []);
 
   // Fungsi untuk menghapus event
@@ -174,7 +206,14 @@ function App() {
         <StatistikEvent statistik={statistik} />
 
         {/* Komponen Form */}
-        <FormTambahEvent onTambahEvent={handleTambahEvent} />
+        <div id="form-event">
+          <FormTambahEvent 
+            onTambahEvent={handleTambahEvent}
+            onUpdateEvent={handleUpdateEvent}
+            eventToEdit={eventToEdit}
+            onCancelEdit={handleCancelEdit}
+          />
+        </div>
 
         {/* Filter dan Pencarian */}
         <div className="filter-container">
@@ -213,11 +252,26 @@ function App() {
         </div>
 
         {/* Komponen Daftar Event */}
-        <DaftarEvent events={filteredEvents} onHapusEvent={handleHapusEvent} />
+        <DaftarEvent
+          events={filteredEvents}
+          onHapusEvent={handleHapusEvent}
+          onEditEvent={handleEditEvent}
+          onViewDetail={handleViewDetail}
+        />
+
+        {/* Modal Detail Event */}
+        {selectedEvent && (
+          <div className="modal">
+            <DetailEvent 
+              event={selectedEvent} 
+              onClose={() => setSelectedEvent(null)} 
+            />
+          </div>
+        )}
       </main>
 
       <footer className="app-footer">
-        <p>© 2025 Sistem Manajemen Event Kampus</p>
+        <p> 2025 Sistem Manajemen Event Kampus</p>
       </footer>
     </div>
   );

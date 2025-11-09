@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 
-function FormTambahEvent({ onTambahEvent }) {
+function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEdit }) {
   // State untuk menyimpan data form
   const [formData, setFormData] = useState({
+    id: "",
     nama: "",
     deskripsi: "",
     tanggal: "",
@@ -10,6 +11,32 @@ function FormTambahEvent({ onTambahEvent }) {
     lokasi: "",
     kategori: "seminar",
   });
+
+  // Update form data when eventToEdit changes
+  useEffect(() => {
+    if (eventToEdit) {
+      setFormData({
+        id: eventToEdit.id,
+        nama: eventToEdit.nama || "",
+        deskripsi: eventToEdit.deskripsi || "",
+        tanggal: eventToEdit.tanggal || "",
+        waktu: eventToEdit.waktu || "",
+        lokasi: eventToEdit.lokasi || "",
+        kategori: eventToEdit.kategori || "seminar",
+      });
+    } else {
+      // Reset form when not in edit mode
+      setFormData({
+        id: "",
+        nama: "",
+        deskripsi: "",
+        tanggal: "",
+        waktu: "",
+        lokasi: "",
+        kategori: "seminar",
+      });
+    }
+  }, [eventToEdit]);
 
   // State untuk validasi
   const [errors, setErrors] = useState({});
@@ -92,29 +119,46 @@ function FormTambahEvent({ onTambahEvent }) {
 
     if (Object.keys(formErrors).length === 0) {
       setIsSubmitting(true);
+      
       // Simulasikan API call
       setTimeout(() => {
-        onTambahEvent(formData);
-        // Reset form
-        setFormData({
-          nama: "",
-          deskripsi: "",
-          tanggal: "",
-          waktu: "",
-          lokasi: "",
-          kategori: "seminar",
-        });
+        if (eventToEdit) {
+          onUpdateEvent(formData);
+        } else {
+          onTambahEvent(formData);
+        }
+        
+        // Reset form jika bukan dalam mode edit
+        if (!eventToEdit) {
+          setFormData({
+            id: "",
+            nama: "",
+            deskripsi: "",
+            tanggal: "",
+            waktu: "",
+            lokasi: "",
+            kategori: "seminar",
+          });
+        }
+        
         setIsSubmitting(false);
-        alert("Event berhasil ditambahkan!");
+        alert(`Event berhasil ${eventToEdit ? 'diperbarui' : 'ditambahkan'}!`);
       }, 1000);
     } else {
       setErrors(formErrors);
     }
   };
 
+  // Handler untuk tombol batal edit
+  const handleCancel = () => {
+    if (onCancelEdit) {
+      onCancelEdit();
+    }
+  };
+
   return (
     <div className="form-container">
-      <h2>📝 Tambah Event Baru</h2>
+      <h2>{eventToEdit ? '✏️ Edit Event' : '📝 Tambah Event Baru'}</h2>
       <form onSubmit={handleSubmit} className="event-form">
         <div className="form-group">
           <label htmlFor="nama">Nama Event*</label>
@@ -220,9 +264,27 @@ function FormTambahEvent({ onTambahEvent }) {
           </div>
         </div>
 
-        <button type="submit" className="submit-button" disabled={isSubmitting}>
-          {isSubmitting ? "Menambahkan..." : "Tambah Event"}
-        </button>
+        <div className="form-actions">
+          {eventToEdit && (
+            <button 
+              type="button" 
+              className="cancel-button"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+            >
+              Batal Edit
+            </button>
+          )}
+          <button 
+            type="submit" 
+            className="submit-button" 
+            disabled={isSubmitting}
+          >
+            {isSubmitting 
+              ? 'Menyimpan...' 
+              : eventToEdit ? 'Update Event' : 'Simpan Event'}
+          </button>
+        </div>
       </form>
     </div>
   );

@@ -5,10 +5,12 @@ import {
   FaMapMarkerAlt,
   FaClock,
   FaInfoCircle,
+  FaEdit,
+  FaEye,
 } from "react-icons/fa";
 
 // Komponen untuk menampilkan daftar event
-function DaftarEvent({ events, onHapusEvent }) {
+function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail }) {
   const [filteredEvents, setFilteredEvents] = useState(events);
 
   // Fungsi untuk memeriksa status event
@@ -99,13 +101,32 @@ function DaftarEvent({ events, onHapusEvent }) {
               >
                 {event.kategori}
               </span>
-              <button
-                className="hapus-button"
-                onClick={() => onHapusEvent(event.id)}
-                aria-label="Hapus event"
-              >
-                <FaTrash />
-              </button>
+              <div className="event-actions">
+                <button
+                  className="action-button view-button"
+                  onClick={() => onViewDetail(event)}
+                  aria-label="Lihat detail"
+                  title="Lihat Detail"
+                >
+                  <FaEye />
+                </button>
+                <button
+                  className="action-button edit-button"
+                  onClick={() => onEditEvent(event)}
+                  aria-label="Edit event"
+                  title="Edit"
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  className="action-button delete-button"
+                  onClick={() => onHapusEvent(event.id)}
+                  aria-label="Hapus event"
+                  title="Hapus"
+                >
+                  <FaTrash />
+                </button>
+              </div>
             </div>
 
             <div className="event-body">
