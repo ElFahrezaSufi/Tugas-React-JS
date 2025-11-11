@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from 'react-router-dom';
 import {
   FaTrash,
   FaCalendarAlt,
@@ -7,11 +8,17 @@ import {
   FaInfoCircle,
   FaEdit,
   FaEye,
+  FaUserFriends,
 } from "react-icons/fa";
+import EventCountdown from "./EventCountdown";
+import RegistrationList from "./RegistrationList";
 
 // Komponen untuk menampilkan daftar event
-function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail }) {
+function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail, showEditDelete = true }) {
+  const navigate = useNavigate();
   const [filteredEvents, setFilteredEvents] = useState(events);
+  const [registrationsModal, setRegistrationsModal] = useState(null);
+  const [registrationTrigger, setRegistrationTrigger] = useState(0);
 
   // Fungsi untuk memeriksa status event
   const getStatusEvent = useCallback((tanggal, waktu = "00:00") => {
@@ -35,6 +42,32 @@ function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail }) {
 
     return () => clearInterval(interval); // Cleanup
   }, []);
+
+  // Listen for storage changes to update badge counts
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setRegistrationTrigger(prev => prev + 1);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Handler untuk menutup modal dan update badge count
+  const handleCloseModal = () => {
+    setRegistrationsModal(null);
+    setRegistrationTrigger(prev => prev + 1); // Force update badge counts
+  };
+
+  // Hitung jumlah pendaftar per event dengan memoization
+  const getRegistrationCount = useCallback((eventId) => {
+    try {
+      const regs = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
+      return regs.filter(r => r.eventId === eventId).length;
+    } catch {
+      return 0;
+    }
+  }, [registrationTrigger]); // Re-calculate when registrationTrigger changes
 
   // Format tanggal ke format Indonesia
   const formatTanggal = (dateString) => {
@@ -104,32 +137,50 @@ function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail }) {
               <div className="event-actions">
                 <button
                   className="action-button view-button"
-                  onClick={() => onViewDetail(event)}
+                  onClick={() => navigate(`/event/${event.id}`)}
                   aria-label="Lihat detail"
                   title="Lihat Detail"
                 >
                   <FaEye />
                 </button>
-                <button
-                  className="action-button edit-button"
-                  onClick={() => onEditEvent(event)}
-                  aria-label="Edit event"
-                  title="Edit"
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  className="action-button delete-button"
-                  onClick={() => onHapusEvent(event.id)}
-                  aria-label="Hapus event"
-                  title="Hapus"
-                >
-                  <FaTrash />
-                </button>
+                {showEditDelete && (
+                  <>
+                    <button
+                      className="action-button view-button"
+                      onClick={() => setRegistrationsModal(event)}
+                      aria-label="Lihat peserta"
+                      title="Lihat Peserta"
+                      style={{ position: 'relative' }}
+                    >
+                      <FaUserFriends />
+                      <span className="badge-count">{getRegistrationCount(event.id)}</span>
+                    </button>
+                    <button
+                      className="action-button edit-button"
+                      onClick={() => onEditEvent(event)}
+                      aria-label="Edit event"
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      className="action-button delete-button"
+                      onClick={() => onHapusEvent(event.id)}
+                      aria-label="Hapus event"
+                      title="Hapus"
+                    >
+                      <FaTrash />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="event-body">
+              {/* Countdown badge untuk event mendatang */}
+              {getStatusEvent(event.tanggal, event.waktu) === "mendatang" && (
+                <EventCountdown tanggal={event.tanggal} waktu={event.waktu} />
+              )}
               <h3 className="event-judul">{event.nama}</h3>
               <p className="event-deskripsi">{event.deskripsi}</p>
 
@@ -168,6 +219,13 @@ function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail }) {
           </div>
         ))}
       </div>
+      {registrationsModal && (
+        <RegistrationList
+          eventId={registrationsModal.id}
+          eventName={registrationsModal.nama}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }

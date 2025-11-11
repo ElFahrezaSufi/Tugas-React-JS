@@ -1,21 +1,64 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useLayoutEffect } from "react";
+import useFormReducer from "../hooks/useFormReducer";
+
+const initialFormData = {
+  id: "",
+  nama: "",
+  deskripsi: "",
+  tanggal: "",
+  waktu: "",
+  lokasi: "",
+  kategori: "seminar",
+};
 
 function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEdit }) {
-  // State untuk menyimpan data form
-  const [formData, setFormData] = useState({
-    id: "",
-    nama: "",
-    deskripsi: "",
-    tanggal: "",
-    waktu: "",
-    lokasi: "",
-    kategori: "seminar",
+  // Gunakan useFormReducer untuk mengelola state form
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    handleChange,
+    setFieldValue,
+    setErrors,
+    setSubmitting,
+    resetForm
+  } = useFormReducer(initialFormData);
+
+  // Auto-focus nama input saat component mount atau saat edit mode
+  useEffect(() => {
+    namaInputRef.current?.focus();
+  }, [eventToEdit]);
+
+  // Auto-resize textarea
+  const prevDeskripsiRef = useRef('');
+  
+  useLayoutEffect(() => {
+    const textarea = deskripsiInputRef.current;
+    if (!textarea) return;
+
+    // Hanya jalankan jika deskripsi berubah
+    if (prevDeskripsiRef.current !== formData.deskripsi) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      prevDeskripsiRef.current = formData.deskripsi;
+    }
   });
+  
+  // Handler khusus untuk textarea dengan auto-resize
+  const handleTextareaChange = (e) => {
+    const { name, value } = e.target;
+    setFieldValue(name, value);
+    
+    // Auto-resize textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+  };
 
   // Update form data when eventToEdit changes
   useEffect(() => {
     if (eventToEdit) {
-      setFormData({
+      const dataToLoad = {
         id: eventToEdit.id,
         nama: eventToEdit.nama || "",
         deskripsi: eventToEdit.deskripsi || "",
@@ -23,24 +66,33 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
         waktu: eventToEdit.waktu || "",
         lokasi: eventToEdit.lokasi || "",
         kategori: eventToEdit.kategori || "seminar",
-      });
-    } else {
-      // Reset form when not in edit mode
-      setFormData({
-        id: "",
-        nama: "",
-        deskripsi: "",
-        tanggal: "",
-        waktu: "",
-        lokasi: "",
-        kategori: "seminar",
-      });
+      };
+      
+      // Gunakan resetForm untuk mengatur ulang form dengan data baru
+      resetForm(dataToLoad);
+      
+      // Setelah reset, atur ulang tinggi textarea
+      if (deskripsiInputRef.current) {
+        deskripsiInputRef.current.style.height = 'auto';
+        deskripsiInputRef.current.style.height = 
+          `${Math.min(deskripsiInputRef.current.scrollHeight, 200)}px`;
+      }
+    } else if (eventToEdit === null) {
+      // Hanya reset form jika benar-benar keluar dari mode edit
+      resetForm(initialFormData);
     }
-  }, [eventToEdit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventToEdit?.id]); // Hanya jalankan ulang jika ID eventToEdit berubah
 
-  // State untuk validasi
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // State untuk validasi dan form handling sudah dihandle oleh useFormReducer
+
+  // useRef untuk focus management dan scroll
+  const namaInputRef = useRef(null);
+  const deskripsiInputRef = useRef(null);
+  const tanggalInputRef = useRef(null);
+  const waktuInputRef = useRef(null);
+  const lokasiInputRef = useRef(null);
+  const formContainerRef = useRef(null);
 
   // Validasi form
   const validateForm = () => {
@@ -95,22 +147,8 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
     return newErrors;
   };
 
-  // Handler untuk perubahan input
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Clear error saat user mulai mengetik
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
-    }
-  };
+  // handleChange sudah dihandle oleh useFormReducer
+  // handleChange di sini hanya untuk override jika diperlukan
 
   // Handler untuk submit form
   const handleSubmit = (e) => {
@@ -118,7 +156,7 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
     const formErrors = validateForm();
 
     if (Object.keys(formErrors).length === 0) {
-      setIsSubmitting(true);
+      setSubmitting(true);
       
       // Simulasikan API call
       setTimeout(() => {
@@ -130,22 +168,28 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
         
         // Reset form jika bukan dalam mode edit
         if (!eventToEdit) {
-          setFormData({
-            id: "",
-            nama: "",
-            deskripsi: "",
-            tanggal: "",
-            waktu: "",
-            lokasi: "",
-            kategori: "seminar",
-          });
+          resetForm(initialFormData);
         }
         
-        setIsSubmitting(false);
+        setSubmitting(false);
         alert(`Event berhasil ${eventToEdit ? 'diperbarui' : 'ditambahkan'}!`);
       }, 1000);
     } else {
       setErrors(formErrors);
+      // Focus ke field pertama yang error dan scroll
+      if (formErrors.nama) {
+        namaInputRef.current?.focus();
+      } else if (formErrors.deskripsi) {
+        deskripsiInputRef.current?.focus();
+      } else if (formErrors.tanggal) {
+        tanggalInputRef.current?.focus();
+      } else if (formErrors.waktu) {
+        waktuInputRef.current?.focus();
+      } else if (formErrors.lokasi) {
+        lokasiInputRef.current?.focus();
+      }
+      // Scroll ke form container
+      formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -157,7 +201,7 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
   };
 
   return (
-    <div className="form-container">
+    <div className="form-container" ref={formContainerRef}>
       <h2>{eventToEdit ? '✏️ Edit Event' : '📝 Tambah Event Baru'}</h2>
       <form onSubmit={handleSubmit} className="event-form">
         <div className="form-group">
@@ -170,6 +214,7 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
             onChange={handleChange}
             className={errors.nama ? "error" : ""}
             placeholder="Contoh: Seminar Teknologi Terkini"
+            ref={namaInputRef}
           />
           {errors.nama && <span className="error-message">{errors.nama}</span>}
         </div>
@@ -180,10 +225,11 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
             id="deskripsi"
             name="deskripsi"
             value={formData.deskripsi}
-            onChange={handleChange}
-            rows="4"
-            className={errors.deskripsi ? "error" : ""}
+            onChange={handleTextareaChange}
+            className={`form-textarea ${errors.deskripsi ? "error" : ""}`}
             placeholder="Jelaskan detail acara secara lengkap..."
+            ref={deskripsiInputRef}
+            style={{ resize: 'none', overflow: 'hidden', minHeight: '100px' }}
           ></textarea>
           {errors.deskripsi && (
             <span className="error-message">{errors.deskripsi}</span>
@@ -201,6 +247,7 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
               onChange={handleChange}
               className={`form-input ${errors.tanggal ? "input-error" : ""}`}
               required
+              ref={tanggalInputRef}
               min={(() => {
                 const today = new Date();
                 const year = today.getFullYear();
@@ -223,6 +270,7 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
               value={formData.waktu}
               onChange={handleChange}
               className={errors.waktu ? "error" : ""}
+              ref={waktuInputRef}
             />
             {errors.waktu && (
               <span className="error-message">{errors.waktu}</span>
@@ -241,6 +289,7 @@ function FormTambahEvent({ onTambahEvent, eventToEdit, onUpdateEvent, onCancelEd
               onChange={handleChange}
               className={errors.lokasi ? "error" : ""}
               placeholder="Contoh: Aula Utama Kampus"
+              ref={lokasiInputRef}
             />
             {errors.lokasi && (
               <span className="error-message">{errors.lokasi}</span>
