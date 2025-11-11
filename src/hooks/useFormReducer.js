@@ -1,141 +1,79 @@
-import { useReducer } from 'react';
+import { useReducer, useCallback, useMemo } from "react";
 
-/**
- * Custom hook menggunakan useReducer untuk manage form state yang kompleks
- * Ini adalah contoh implementasi useReducer untuk form management
- */
-
-// Action types
 export const FORM_ACTIONS = {
-  SET_FIELD: 'SET_FIELD',
-  SET_ERROR: 'SET_ERROR',
-  CLEAR_ERROR: 'CLEAR_ERROR',
-  SET_ERRORS: 'SET_ERRORS',
-  RESET_FORM: 'RESET_FORM',
-  LOAD_DATA: 'LOAD_DATA',
-  SET_SUBMITTING: 'SET_SUBMITTING',
+  SET_FIELD: "SET_FIELD",
+  SET_ERRORS: "SET_ERRORS",
+  RESET_FORM: "RESET_FORM",
+  SET_SUBMITTING: "SET_SUBMITTING",
 };
 
-// Reducer function
 const formReducer = (state, action) => {
   switch (action.type) {
     case FORM_ACTIONS.SET_FIELD:
       return {
         ...state,
-        formData: {
-          ...state.formData,
-          [action.field]: action.value,
-        },
+        formData: { ...state.formData, [action.field]: action.value },
       };
-    
-    case FORM_ACTIONS.SET_ERROR:
-      return {
-        ...state,
-        errors: {
-          ...state.errors,
-          [action.field]: action.message,
-        },
-      };
-    
-    case FORM_ACTIONS.CLEAR_ERROR:
-      const newErrors = { ...state.errors };
-      delete newErrors[action.field];
-      return {
-        ...state,
-        errors: newErrors,
-      };
-    
     case FORM_ACTIONS.SET_ERRORS:
-      return {
-        ...state,
-        errors: action.errors,
-      };
-    
+      return { ...state, errors: action.errors || {} };
     case FORM_ACTIONS.RESET_FORM:
-      return {
-        ...state,
-        formData: action.initialData || state.initialData,
-        errors: {},
-      };
-    
-    case FORM_ACTIONS.LOAD_DATA:
-      return {
-        ...state,
-        formData: action.data,
-        errors: {},
-      };
-    
+      return { ...state, formData: action.payload, errors: {} };
     case FORM_ACTIONS.SET_SUBMITTING:
-      return {
-        ...state,
-        isSubmitting: action.value,
-      };
-    
+      return { ...state, isSubmitting: action.value };
     default:
       return state;
   }
 };
 
-/**
- * Custom hook untuk form dengan useReducer
- * @param {Object} initialData - Initial form data
- * @returns {Object} - { formData, errors, isSubmitting, dispatch, handlers }
- */
-export const useFormReducer = (initialData) => {
+export default function useFormReducer(initialData) {
   const [state, dispatch] = useReducer(formReducer, {
     formData: initialData,
-    initialData: initialData,
     errors: {},
     isSubmitting: false,
   });
 
-  // Helper handlers
-  const handleChange = (e) => {
+  const setField = useCallback(
+    (field, value) => dispatch({ type: FORM_ACTIONS.SET_FIELD, field, value }),
+    []
+  );
+
+  const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
-    const finalValue = type === 'checkbox' ? checked : value;
-    dispatch({ type: FORM_ACTIONS.SET_FIELD, field: name, value: finalValue });
-  };
+    dispatch({
+      type: FORM_ACTIONS.SET_FIELD,
+      field: name,
+      value: type === "checkbox" ? checked : value,
+    });
+  }, []);
 
-  const handlers = {
-    setField: (field, value) => {
-      dispatch({ type: FORM_ACTIONS.SET_FIELD, field, value });
-    },
-    
-    setError: (field, message) => {
-      dispatch({ type: FORM_ACTIONS.SET_ERROR, field, message });
-    },
-    
-    handleChange,
-    
-    clearError: (field) => {
-      dispatch({ type: FORM_ACTIONS.CLEAR_ERROR, field });
-    },
-    
-    setErrors: (errors) => {
-      dispatch({ type: FORM_ACTIONS.SET_ERRORS, errors });
-    },
-    
-    resetForm: (data) => {
-      dispatch({ type: FORM_ACTIONS.RESET_FORM, initialData: data });
-    },
-    
-    loadData: (data) => {
-      dispatch({ type: FORM_ACTIONS.LOAD_DATA, data });
-    },
-    
-    setSubmitting: (value) => {
-      dispatch({ type: FORM_ACTIONS.SET_SUBMITTING, value });
-    },
-  };
+  const setErrors = useCallback(
+    (errors) => dispatch({ type: FORM_ACTIONS.SET_ERRORS, errors }),
+    []
+  );
 
-  // Memoize the return value to prevent unnecessary re-renders
-  return {
-    formData: state.formData,
-    errors: state.errors,
-    isSubmitting: state.isSubmitting,
-    dispatch,
-    ...handlers,
-  };
-};
+  const resetForm = useCallback(
+    (data = initialData) =>
+      dispatch({ type: FORM_ACTIONS.RESET_FORM, payload: data }),
+    [initialData]
+  );
 
-export default useFormReducer;
+  const setSubmitting = useCallback(
+    (value) => dispatch({ type: FORM_ACTIONS.SET_SUBMITTING, value }),
+    []
+  );
+
+  return useMemo(
+    () => ({
+      formData: state.formData,
+      errors: state.errors,
+      isSubmitting: state.isSubmitting,
+      setField,
+      setFieldValue: setField, // ✅ alias tetap ada
+      handleChange,
+      setErrors,
+      resetForm,
+      setSubmitting,
+    }),
+    [state, setField, handleChange, setErrors, resetForm, setSubmitting]
+  );
+}
