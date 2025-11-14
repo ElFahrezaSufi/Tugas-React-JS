@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 import Navbar from "../components/Navbar";
 import { useAuth } from "../contexts/AuthContext";
+import { getMyRegistrations } from "../services/registrationsApi";
 import { FaRegCalendarXmark } from "react-icons/fa6";
 
 // Helper function to get event status
@@ -82,12 +83,12 @@ function UserProfile() {
   const fileInputRef = useRef(null);
 
   // Fetch user statistics
-  const fetchUserStats = useCallback(() => {
+  const fetchUserStats = useCallback(async () => {
     try {
       setIsLoading(true);
       const events = JSON.parse(localStorage.getItem("events") || "[]");
-      const registrations = JSON.parse(
-        localStorage.getItem("eventRegistrations") || "[]"
+      const registrations = await getMyRegistrations(user?.token).catch(
+        () => []
       );
 
       // Count events created by user
@@ -124,7 +125,7 @@ function UserProfile() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, user?.token]);
 
   // Load user stats on component mount
   useEffect(() => {
@@ -381,7 +382,7 @@ function UserProfile() {
                       ref={fileInputRef}
                       onChange={handleAvatarChange}
                       accept="image/*"
-                      style={{ display: 'none' }}
+                      style={{ display: "none" }}
                     />
                     {(avatar || avatarPreview) && (
                       <button

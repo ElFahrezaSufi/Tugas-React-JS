@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { FaUser, FaEnvelope, FaLock, FaCalendarAlt, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  FaUser,
+  FaEnvelope,
+  FaLock,
+  FaCalendarAlt,
+  FaEye,
+  FaEyeSlash,
+} from "react-icons/fa";
+import { useAuth } from "../contexts/AuthContext";
 
 /**
  * Register Page - Halaman untuk registrasi user baru
@@ -9,20 +16,20 @@ import { useAuth } from '../contexts/AuthContext';
 function Register() {
   const { register, user } = useAuth();
   const navigate = useNavigate();
-  
+
   const [formData, setFormData] = useState({
-    nama: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    nama: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
-  
+
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  
+  const [successMessage, setSuccessMessage] = useState("");
+
   // useRef untuk focus management
   const namaInputRef = useRef(null);
   const emailInputRef = useRef(null);
@@ -32,7 +39,7 @@ function Register() {
   // Redirect jika sudah login
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
     }
   }, [user, navigate]);
 
@@ -45,27 +52,27 @@ function Register() {
     const newErrors = {};
 
     if (!formData.nama.trim()) {
-      newErrors.nama = 'Nama harus diisi';
+      newErrors.nama = "Nama harus diisi";
     } else if (formData.nama.length < 3) {
-      newErrors.nama = 'Nama minimal 3 karakter';
+      newErrors.nama = "Nama minimal 3 karakter";
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email harus diisi';
+      newErrors.email = "Email harus diisi";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Format email tidak valid';
+      newErrors.email = "Format email tidak valid";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password harus diisi';
+      newErrors.password = "Password harus diisi";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password minimal 6 karakter';
+      newErrors.password = "Password minimal 6 karakter";
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Konfirmasi password harus diisi';
+      newErrors.confirmPassword = "Konfirmasi password harus diisi";
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Password tidak cocok';
+      newErrors.confirmPassword = "Password tidak cocok";
     }
 
     return newErrors;
@@ -73,16 +80,16 @@ function Register() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
 
     // Clear error saat user mengetik
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: '',
+        [name]: "",
       }));
     }
   };
@@ -93,32 +100,28 @@ function Register() {
 
     if (Object.keys(formErrors).length === 0) {
       setIsSubmitting(true);
-      setSuccessMessage('');
-
-      // Simulasi delay untuk realistis
-      setTimeout(() => {
+      setSuccessMessage("");
+      try {
         const { confirmPassword, ...userData } = formData;
-        const result = register(userData);
-        
+        const result = await register(userData);
         if (result.success) {
           setSuccessMessage(result.message);
           setFormData({
-            nama: '',
-            email: '',
-            password: '',
-            confirmPassword: '',
+            nama: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
           });
-          
-          // Redirect ke login setelah 2 detik
-          setTimeout(() => {
-            navigate('/login');
-          }, 2000);
+          setTimeout(() => navigate("/login"), 2000);
         } else {
           setErrors({ email: result.message });
         }
-        
+      } catch (err) {
+        console.error("Register failed", err);
+        setErrors({ email: "Terjadi kesalahan saat registrasi" });
+      } finally {
         setIsSubmitting(false);
-      }, 800);
+      }
     } else {
       setErrors(formErrors);
       // Focus ke field pertama yang error
@@ -144,9 +147,7 @@ function Register() {
         </div>
 
         {successMessage && (
-          <div className="alert alert-success">
-            {successMessage}
-          </div>
+          <div className="alert alert-success">{successMessage}</div>
         )}
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -161,7 +162,7 @@ function Register() {
               name="nama"
               value={formData.nama}
               onChange={handleChange}
-              className={errors.nama ? 'error' : ''}
+              className={errors.nama ? "error" : ""}
               placeholder="Nama lengkap Anda"
               autoComplete="name"
               ref={namaInputRef}
@@ -182,7 +183,7 @@ function Register() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={errors.email ? 'error' : ''}
+              className={errors.email ? "error" : ""}
               placeholder="nama@email.com"
               autoComplete="email"
               ref={emailInputRef}
@@ -199,12 +200,12 @@ function Register() {
             </label>
             <div className="password-input-wrapper">
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 id="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={errors.password ? 'error' : ''}
+                className={errors.password ? "error" : ""}
                 placeholder="Minimal 6 karakter"
                 autoComplete="new-password"
                 ref={passwordInputRef}
@@ -213,7 +214,9 @@ function Register() {
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-label={
+                  showPassword ? "Sembunyikan password" : "Tampilkan password"
+                }
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
@@ -230,12 +233,12 @@ function Register() {
             </label>
             <div className="password-input-wrapper">
               <input
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? "text" : "password"}
                 id="confirmPassword"
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={errors.confirmPassword ? 'error' : ''}
+                className={errors.confirmPassword ? "error" : ""}
                 placeholder="Ulangi password"
                 autoComplete="new-password"
                 ref={confirmPasswordInputRef}
@@ -244,7 +247,11 @@ function Register() {
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                aria-label={showConfirmPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-label={
+                  showConfirmPassword
+                    ? "Sembunyikan password"
+                    : "Tampilkan password"
+                }
               >
                 {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
@@ -259,13 +266,13 @@ function Register() {
             className="auth-submit-btn"
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Memproses...' : 'Daftar'}
+            {isSubmitting ? "Memproses..." : "Daftar"}
           </button>
         </form>
 
         <div className="auth-footer">
           <p>
-            Sudah punya akun?{' '}
+            Sudah punya akun?{" "}
             <Link to="/login" className="auth-link">
               Masuk sekarang
             </Link>

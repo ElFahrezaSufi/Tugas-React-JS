@@ -1,21 +1,39 @@
-import PropTypes from 'prop-types';
-import { useMemo } from 'react';
-import { FaCalendarCheck, FaClock, FaCheckCircle } from 'react-icons/fa';
+import PropTypes from "prop-types";
+import { useMemo, useEffect, useState } from "react";
+import { FaCalendarCheck, FaClock, FaCheckCircle } from "react-icons/fa";
+import { useAuth } from "../contexts/AuthContext";
+import { getMyRegistrations } from "../services/registrationsApi";
 
-function cekStatusEvent(tanggal, waktu = '00:00') {
+function cekStatusEvent(tanggal, waktu = "00:00") {
   const now = new Date();
-  const [year, month, day] = tanggal.split('-').map(Number);
-  const [hours, minutes] = waktu.split(':').map(Number);
+  const [year, month, day] = tanggal.split("-").map(Number);
+  const [hours, minutes] = waktu.split(":").map(Number);
   const eventDate = new Date(year, month - 1, day, hours, minutes || 0);
-  if (now < eventDate) return 'mendatang';
-  if (now > new Date(eventDate.getTime() + 60 * 60 * 1000)) return 'selesai';
-  return 'berlangsung';
+  if (now < eventDate) return "mendatang";
+  if (now > new Date(eventDate.getTime() + 60 * 60 * 1000)) return "selesai";
+  return "berlangsung";
 }
 
 function ProfileStatistics({ userId }) {
+  const { user } = useAuth();
+  const [registrations, setRegistrations] = useState([]);
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = user?.token;
+        const regs = await getMyRegistrations(token).catch(() => []);
+        setRegistrations(regs || []);
+        const allEvents = JSON.parse(localStorage.getItem("events") || "[]");
+        setEvents(allEvents);
+      } catch (err) {
+        setRegistrations([]);
+      }
+    })();
+  }, [user]);
+
   const stats = useMemo(() => {
-    const registrations = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
-    const events = JSON.parse(localStorage.getItem('events') || '[]');
     const myRegs = registrations.filter((r) => r.userId === userId);
 
     let upcoming = 0;
@@ -26,8 +44,8 @@ function ProfileStatistics({ userId }) {
       const ev = events.find((e) => e.id === r.eventId);
       if (!ev) return;
       const st = cekStatusEvent(ev.tanggal, ev.waktu);
-      if (st === 'mendatang') upcoming += 1;
-      else if (st === 'selesai') completed += 1;
+      if (st === "mendatang") upcoming += 1;
+      else if (st === "selesai") completed += 1;
       else ongoing += 1;
     });
 
@@ -37,14 +55,17 @@ function ProfileStatistics({ userId }) {
       ongoing,
       completed,
     };
-  }, [userId]);
+  }, [registrations, events, userId]);
 
   return (
     <div className="profile-card">
       <h3>📊 Statistik Event Saya</h3>
       <div className="statistik-container">
         <div className="statistik-card">
-          <div className="statistik-icon" style={{ backgroundColor: 'rgba(23, 162, 184, 0.1)' }}>
+          <div
+            className="statistik-icon"
+            style={{ backgroundColor: "rgba(23, 162, 184, 0.1)" }}
+          >
             <FaCalendarCheck />
           </div>
           <div className="statistik-info">
@@ -53,7 +74,10 @@ function ProfileStatistics({ userId }) {
           </div>
         </div>
         <div className="statistik-card">
-          <div className="statistik-icon" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
+          <div
+            className="statistik-icon"
+            style={{ backgroundColor: "rgba(255, 193, 7, 0.15)" }}
+          >
             <FaClock />
           </div>
           <div className="statistik-info">
@@ -62,7 +86,10 @@ function ProfileStatistics({ userId }) {
           </div>
         </div>
         <div className="statistik-card">
-          <div className="statistik-icon" style={{ backgroundColor: 'rgba(40, 167, 69, 0.12)' }}>
+          <div
+            className="statistik-icon"
+            style={{ backgroundColor: "rgba(40, 167, 69, 0.12)" }}
+          >
             <FaCheckCircle />
           </div>
           <div className="statistik-info">

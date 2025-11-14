@@ -5,6 +5,7 @@ import DetailEvent from "../components/DetailEvent";
 import Navbar from "../components/Navbar";
 import SearchWithHistory from "../components/SearchWithHistory";
 import { useAuth } from "../contexts/AuthContext";
+import useEvents from "../hooks/useEvents";
 
 // Fungsi helper untuk memeriksa status event
 const cekStatusEvent = (tanggal, waktu = "00:00") => {
@@ -12,13 +13,13 @@ const cekStatusEvent = (tanggal, waktu = "00:00") => {
   const [year, month, day] = tanggal.split("-").map(Number);
   const [hours, minutes] = waktu.split(":").map(Number);
   const eventDate = new Date(year, month - 1, day, hours, minutes);
-  
+
   return {
     status: now < eventDate ? "mendatang" : "selesai",
-    timeUntilStatusChange: Math.max(0, now < eventDate ? 
-      eventDate - now : 
-      Number.MAX_SAFE_INTEGER
-    )
+    timeUntilStatusChange: Math.max(
+      0,
+      now < eventDate ? eventDate - now : Number.MAX_SAFE_INTEGER
+    ),
   };
 };
 
@@ -28,17 +29,13 @@ const cekStatusEvent = (tanggal, waktu = "00:00") => {
 function Dashboard() {
   const { user } = useAuth();
 
-  // Load events from localStorage
-  const [events, setEvents] = useState(() => {
-    const savedEvents = localStorage.getItem("events");
-    return savedEvents ? JSON.parse(savedEvents) : [];
-  });
+  const { events, loading, error, reload, setEvents } = useEvents();
 
   // State untuk pencarian dan filter
   const [searchTerm, setSearchTerm] = useState("");
   const [filterKategori, setFilterKategori] = useState("semua");
   const [filterStatus, setFilterStatus] = useState("semua");
-  
+
   // State untuk manajemen event yang sedang dilihat
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -56,7 +53,8 @@ function Dashboard() {
         event.kategori.toLowerCase() === filterKategori.toLowerCase();
 
       const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
-      const matchesStatus = filterStatus === "semua" || statusInfo.status === filterStatus;
+      const matchesStatus =
+        filterStatus === "semua" || statusInfo.status === filterStatus;
 
       return matchesSearch && matchesKategori && matchesStatus;
     });
@@ -65,15 +63,17 @@ function Dashboard() {
   // Effect untuk mengupdate status event secara real-time
   useEffect(() => {
     const now = new Date();
-    const nextUpdates = events.map(event => {
-      const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
-      return statusInfo.timeUntilStatusChange;
-    }).filter(time => time > 0 && time < Number.MAX_SAFE_INTEGER);
+    const nextUpdates = events
+      .map((event) => {
+        const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
+        return statusInfo.timeUntilStatusChange;
+      })
+      .filter((time) => time > 0 && time < Number.MAX_SAFE_INTEGER);
 
     if (nextUpdates.length > 0) {
       const nextUpdate = Math.min(...nextUpdates);
       const timer = setTimeout(() => {
-        setStatusUpdateTrigger(prev => prev + 1);
+        setStatusUpdateTrigger((prev) => prev + 1);
       }, nextUpdate);
 
       return () => clearTimeout(timer);
@@ -83,18 +83,18 @@ function Dashboard() {
   // Fungsi untuk menghitung statistik
   const hitungStatistik = (eventsList) => {
     const total = eventsList.length;
-    
+
     const { mendatang, selesai } = eventsList.reduce(
       (acc, event) => {
         try {
           const statusInfo = cekStatusEvent(event.tanggal, event.waktu);
-          if (statusInfo.status === 'mendatang') {
+          if (statusInfo.status === "mendatang") {
             acc.mendatang += 1;
           } else {
             acc.selesai += 1;
           }
         } catch (error) {
-          console.error('Error processing event:', event, error);
+          console.error("Error processing event:", event, error);
         }
         return acc;
       },
@@ -110,15 +110,17 @@ function Dashboard() {
   // Update statistik ketika events berubah atau status update dipicu
   useEffect(() => {
     const newStats = hitungStatistik(events);
-    setStatistik(prev => {
-      return JSON.stringify(prev) !== JSON.stringify(newStats) ? newStats : prev;
+    setStatistik((prev) => {
+      return JSON.stringify(prev) !== JSON.stringify(newStats)
+        ? newStats
+        : prev;
     });
   }, [events, statusUpdateTrigger]);
 
   // Effect untuk update periodik (setiap menit) sebagai fallback
   useEffect(() => {
     const interval = setInterval(() => {
-      setStatusUpdateTrigger(prev => prev + 1);
+      setStatusUpdateTrigger((prev) => prev + 1);
     }, 60000);
 
     return () => clearInterval(interval);
@@ -131,11 +133,15 @@ function Dashboard() {
 
   // Dummy functions untuk user (tidak bisa edit/hapus)
   const handleHapusEvent = () => {
-    alert("Anda tidak memiliki akses untuk menghapus event. Hanya admin yang bisa menghapus event.");
+    alert(
+      "Anda tidak memiliki akses untuk menghapus event. Hanya admin yang bisa menghapus event."
+    );
   };
 
   const handleEditEvent = () => {
-    alert("Anda tidak memiliki akses untuk mengedit event. Hanya admin yang bisa mengedit event.");
+    alert(
+      "Anda tidak memiliki akses untuk mengedit event. Hanya admin yang bisa mengedit event."
+    );
   };
 
   return (
@@ -145,8 +151,9 @@ function Dashboard() {
         <header className="app-header">
           <h1>📅 Dashboard Event Kampus</h1>
           <p className="welcome-message">
-            Selamat datang, <strong>{user?.nama}</strong>! 
-            {user?.role === 'user' && ' Anda dapat melihat daftar event yang tersedia.'}
+            Selamat datang, <strong>{user?.nama}</strong>!
+            {user?.role === "user" &&
+              " Anda dapat melihat daftar event yang tersedia."}
           </p>
         </header>
 
@@ -189,28 +196,58 @@ function Dashboard() {
           </div>
 
           {/* Info untuk user biasa */}
-          {user?.role === 'user' && (
+          {user?.role === "user" && (
             <div className="alert alert-info user-info">
-              <strong>Info:</strong> Anda login sebagai User. Untuk mengelola event (tambah, edit, hapus), 
-              silakan hubungi administrator.
+              <strong>Info:</strong> Anda login sebagai User. Untuk mengelola
+              event (tambah, edit, hapus), silakan hubungi administrator.
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="alert alert-info">
+              <strong>Loading...</strong> Memuat data event dari server...
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div className="alert alert-error">
+              <strong>Error:</strong> {error}
+              <button
+                onClick={() => reload()}
+                style={{
+                  marginLeft: "10px",
+                  padding: "5px 10px",
+                  cursor: "pointer",
+                  backgroundColor: "#dc3545",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                }}
+              >
+                Retry
+              </button>
             </div>
           )}
 
           {/* Komponen Daftar Event */}
-          <DaftarEvent
-            events={filteredEvents}
-            onHapusEvent={handleHapusEvent}
-            onEditEvent={handleEditEvent}
-            onViewDetail={handleViewDetail}
-            showEditDelete={false}
-          />
+          {!loading && !error && (
+            <DaftarEvent
+              events={filteredEvents}
+              onHapusEvent={handleHapusEvent}
+              onEditEvent={handleEditEvent}
+              onViewDetail={handleViewDetail}
+              showEditDelete={false}
+            />
+          )}
 
           {/* Modal Detail Event */}
           {selectedEvent && (
             <div className="modal">
-              <DetailEvent 
-                event={selectedEvent} 
-                onClose={() => setSelectedEvent(null)} 
+              <DetailEvent
+                event={selectedEvent}
+                onClose={() => setSelectedEvent(null)}
               />
             </div>
           )}

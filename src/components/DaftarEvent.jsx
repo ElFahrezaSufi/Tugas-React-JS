@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import {
   FaTrash,
   FaCalendarAlt,
@@ -12,13 +12,21 @@ import {
 } from "react-icons/fa";
 import EventCountdown from "./EventCountdown";
 import RegistrationList from "./RegistrationList";
+import { getEventRegistrations } from "../services/registrationsApi";
 
 // Komponen untuk menampilkan daftar event
-function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail, showEditDelete = true }) {
+function DaftarEvent({
+  events,
+  onHapusEvent,
+  onEditEvent,
+  onViewDetail,
+  showEditDelete = true,
+}) {
   const navigate = useNavigate();
   const [filteredEvents, setFilteredEvents] = useState(events);
   const [registrationsModal, setRegistrationsModal] = useState(null);
   const [registrationTrigger, setRegistrationTrigger] = useState(0);
+  const [regCounts, setRegCounts] = useState({});
 
   // Fungsi untuk memeriksa status event
   const getStatusEvent = useCallback((tanggal, waktu = "00:00") => {
@@ -43,31 +51,42 @@ function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail, showEdit
     return () => clearInterval(interval); // Cleanup
   }, []);
 
-  // Listen for storage changes to update badge counts
+  // Fetch registration counts from server
   useEffect(() => {
-    const handleStorageChange = () => {
-      setRegistrationTrigger(prev => prev + 1);
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    if (!events || events.length === 0) return;
+    (async () => {
+      try {
+        const counts = {};
+        await Promise.all(
+          events.map(async (evt) => {
+            try {
+              const regs = await getEventRegistrations(evt.id, null).catch(
+                () => []
+              );
+              counts[evt.id] = (regs || []).length;
+            } catch {
+              counts[evt.id] = 0;
+            }
+          })
+        );
+        setRegCounts(counts);
+      } catch (err) {
+        console.warn("Failed to fetch registration counts", err);
+      }
+    })();
+  }, [events, registrationTrigger]);
 
   // Handler untuk menutup modal dan update badge count
   const handleCloseModal = () => {
     setRegistrationsModal(null);
-    setRegistrationTrigger(prev => prev + 1); // Force update badge counts
+    setRegistrationTrigger((prev) => prev + 1); // Force update badge counts
   };
 
-  // Hitung jumlah pendaftar per event dengan memoization
-  const getRegistrationCount = useCallback((eventId) => {
-    try {
-      const regs = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
-      return regs.filter(r => r.eventId === eventId).length;
-    } catch {
-      return 0;
-    }
-  }, [registrationTrigger]); // Re-calculate when registrationTrigger changes
+  // Hitung jumlah pendaftar per event dari server API
+  const getRegistrationCount = useCallback(
+    (eventId) => regCounts[eventId] || 0,
+    [regCounts]
+  );
 
   // Format tanggal ke format Indonesia
   const formatTanggal = (dateString) => {
@@ -150,10 +169,12 @@ function DaftarEvent({ events, onHapusEvent, onEditEvent, onViewDetail, showEdit
                       onClick={() => setRegistrationsModal(event)}
                       aria-label="Lihat peserta"
                       title="Lihat Peserta"
-                      style={{ position: 'relative' }}
+                      style={{ position: "relative" }}
                     >
                       <FaUserFriends />
-                      <span className="badge-count">{getRegistrationCount(event.id)}</span>
+                      <span className="badge-count">
+                        {getRegistrationCount(event.id)}
+                      </span>
                     </button>
                     <button
                       className="action-button edit-button"

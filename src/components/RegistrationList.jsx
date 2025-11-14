@@ -1,36 +1,48 @@
-import { useMemo, useState } from 'react';
-import { FaUserFriends, FaSearch, FaTimes } from 'react-icons/fa';
-import PropTypes from 'prop-types';
+import { useMemo, useState, useEffect } from "react";
+import { FaUserFriends, FaSearch, FaTimes } from "react-icons/fa";
+import PropTypes from "prop-types";
+import { getEventRegistrations } from "../services/registrationsApi";
+import { useAuth } from "../contexts/AuthContext";
 
 function RegistrationList({ eventId, eventName, onClose }) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [registrations, setRegistrations] = useState([]);
 
-  const registrations = useMemo(() => {
-    const allRegistrations = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const eventRegs = allRegistrations.filter((reg) => reg.eventId === eventId);
-
-    return eventRegs.map((reg) => {
-      const user = users.find((u) => u.id === reg.userId);
-      return {
-        ...reg,
-        userName: user?.nama || 'Unknown',
-        userEmail: user?.email || 'Unknown',
-      };
-    });
-  }, [eventId]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = user?.token;
+        const regs = await getEventRegistrations(eventId, token).catch(
+          () => []
+        );
+        if (!cancelled) setRegistrations(regs || []);
+      } catch (err) {
+        if (!cancelled) setRegistrations([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, user]);
 
   const filteredRegistrations = useMemo(() => {
     if (!searchTerm) return registrations;
     const term = searchTerm.toLowerCase();
     return registrations.filter(
-      (r) => r.userName.toLowerCase().includes(term) || r.userEmail.toLowerCase().includes(term)
+      (r) =>
+        (r.userName || "").toLowerCase().includes(term) ||
+        (r.userEmail || "").toLowerCase().includes(term)
     );
   }, [registrations, searchTerm]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content registration-list-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content registration-list-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h2>
             <FaUserFriends /> Daftar Peserta
@@ -63,7 +75,11 @@ function RegistrationList({ eventId, eventName, onClose }) {
         <div className="registration-list-table">
           {filteredRegistrations.length === 0 ? (
             <div className="empty-state">
-              <p>{searchTerm ? 'Tidak ada peserta yang cocok.' : 'Belum ada peserta.'}</p>
+              <p>
+                {searchTerm
+                  ? "Tidak ada peserta yang cocok."
+                  : "Belum ada peserta."}
+              </p>
             </div>
           ) : (
             <table>
@@ -81,7 +97,7 @@ function RegistrationList({ eventId, eventName, onClose }) {
                     <td>{idx + 1}</td>
                     <td>{r.userName}</td>
                     <td>{r.userEmail}</td>
-                    <td>{new Date(r.registeredAt).toLocaleString('id-ID')}</td>
+                    <td>{new Date(r.registeredAt).toLocaleString("id-ID")}</td>
                   </tr>
                 ))}
               </tbody>

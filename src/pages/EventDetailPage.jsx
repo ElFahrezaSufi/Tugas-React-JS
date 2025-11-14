@@ -1,8 +1,20 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FaCalendarAlt, FaMapMarkerAlt, FaClock, FaArrowLeft, FaUserPlus } from 'react-icons/fa';
-import Navbar from '../components/Navbar';
-import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+  FaCalendarAlt,
+  FaMapMarkerAlt,
+  FaClock,
+  FaArrowLeft,
+  FaUserPlus,
+} from "react-icons/fa";
+import Navbar from "../components/Navbar";
+import { useAuth } from "../contexts/AuthContext";
+import { getEventById } from "../services/eventsApi";
+import {
+  getEventRegistrations,
+  registerForEvent,
+  cancelRegistrationForCurrentUser,
+} from "../services/registrationsApi";
 
 /**
  * EventDetailPage - Halaman detail event dengan dynamic route /event/:id
@@ -17,87 +29,110 @@ function EventDetailPage() {
   const [isRegistered, setIsRegistered] = useState(false);
 
   useEffect(() => {
-    // Load event dari localStorage berdasarkan ID
-    const events = JSON.parse(localStorage.getItem('events') || '[]');
-    const foundEvent = events.find(e => e.id === id);
-    
-    if (foundEvent) {
-      setEvent(foundEvent);
-      
-      // Check apakah user sudah daftar event ini
-      const registrations = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
-      const userRegistered = registrations.some(
-        reg => reg.eventId === id && reg.userId === user?.id && reg.status === 'registered'
-      );
-      setIsRegistered(userRegistered);
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await getEventById(id);
+        if (cancelled) return;
+        setEvent(res);
+        // fetch registrations from server to determine if current user is registered
+        try {
+          const token = user?.token;
+          const regs = await getEventRegistrations(id, token).catch(() => []);
+          const userRegistered = regs.some(
+            (reg) =>
+              reg.eventId === id &&
+              reg.userId === user?.id &&
+              reg.status === "registered"
+          );
+          setIsRegistered(userRegistered);
+        } catch (err) {
+          setIsRegistered(false);
+        }
+      } catch (err) {
+        console.error("Failed to load event by id", err);
+        setEvent(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    
-    setLoading(false);
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, user]);
 
   // Format tanggal
   const formatTanggal = (dateString) => {
     const options = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
+    return new Date(dateString).toLocaleDateString("id-ID", options);
   };
 
   // Format waktu
   const formatWaktu = (timeString) => {
-    if (!timeString) return '';
+    if (!timeString) return "";
     return timeString.substring(0, 5);
   };
 
   // Check status event
-  const getStatusEvent = (tanggal, waktu = '00:00') => {
+  const getStatusEvent = (tanggal, waktu = "00:00") => {
     const now = new Date();
-    const [year, month, day] = tanggal.split('-').map(Number);
-    const [hours, minutes] = waktu.split(':').map(Number);
+    const [year, month, day] = tanggal.split("-").map(Number);
+    const [hours, minutes] = waktu.split(":").map(Number);
     const eventDate = new Date(year, month - 1, day, hours, minutes);
-    return now < eventDate ? 'mendatang' : 'selesai';
+    return now < eventDate ? "mendatang" : "selesai";
   };
 
   // Handler untuk registrasi event
   const handleRegister = () => {
     if (!user) {
-      alert('Anda harus login terlebih dahulu');
+      alert("Anda harus login terlebih dahulu");
       return;
     }
 
-    const registrations = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
-    
-    const newRegistration = {
-      id: Date.now().toString(),
-      eventId: id,
-      userId: user.id,
-      userName: user.nama,
-      userEmail: user.email,
-      registeredAt: new Date().toISOString(),
-      status: 'registered',
-    };
-
-    registrations.push(newRegistration);
-    localStorage.setItem('eventRegistrations', JSON.stringify(registrations));
-    
-    setIsRegistered(true);
-    alert('Berhasil mendaftar ke event!');
+    (async () => {
+      try {
+        const token = user?.token;
+        await registerForEvent(id, token);
+        setIsRegistered(true);
+        // Notify other components in this same window/tab that registrations changed
+        try {
+          window.dispatchEvent(new Event("eventRegistrationsChanged"));
+        } catch (err) {
+          // ignore
+        }
+        alert("Berhasil mendaftar ke event!");
+      } catch (err) {
+        console.error("Register failed", err);
+        alert(err.message || "Gagal mendaftar");
+      }
+    })();
   };
 
   // Handler untuk cancel registrasi
   const handleCancelRegistration = () => {
-    if (window.confirm('Apakah Anda yakin ingin membatalkan pendaftaran?')) {
-      const registrations = JSON.parse(localStorage.getItem('eventRegistrations') || '[]');
-      const updatedRegistrations = registrations.filter(
-        reg => !(reg.eventId === id && reg.userId === user?.id)
-      );
-      localStorage.setItem('eventRegistrations', JSON.stringify(updatedRegistrations));
-      
-      setIsRegistered(false);
-      alert('Pendaftaran berhasil dibatalkan');
+    if (window.confirm("Apakah Anda yakin ingin membatalkan pendaftaran?")) {
+      (async () => {
+        try {
+          const token = user?.token;
+          await cancelRegistrationForCurrentUser(id, token);
+          setIsRegistered(false);
+          try {
+            window.dispatchEvent(new Event("eventRegistrationsChanged"));
+          } catch (_) {}
+          alert("Pendaftaran berhasil dibatalkan");
+        } catch (err) {
+          console.error("Cancel registration failed", err);
+          alert(err.message || "Gagal membatalkan pendaftaran");
+        }
+      })();
     }
   };
 
@@ -155,7 +190,7 @@ function EventDetailPage() {
             <div className="event-detail-title-section">
               <h1>{event.nama}</h1>
               <span className={`status-badge-large ${status}`}>
-                {status === 'mendatang' ? 'Akan Datang' : 'Sudah Selesai'}
+                {status === "mendatang" ? "Akan Datang" : "Sudah Selesai"}
               </span>
             </div>
             <span className="kategori-badge-large">{event.kategori}</span>
@@ -198,7 +233,7 @@ function EventDetailPage() {
             </div>
 
             {/* Registration Section - hanya untuk user biasa dan event mendatang */}
-            {user?.role !== 'admin' && status === 'mendatang' && (
+            {user?.role !== "admin" && status === "mendatang" && (
               <div className="event-registration-card">
                 <h3>Pendaftaran</h3>
                 {isRegistered ? (
