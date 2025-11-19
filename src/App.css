@@ -132,6 +132,7 @@ button,
   white-space: nowrap;
   vertical-align: middle;
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   border: 1px solid transparent;
   border-radius: var(--border-radius);
@@ -524,6 +525,7 @@ textarea {
   font-size: 0.9rem;
   position: relative;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -580,10 +582,8 @@ textarea {
   flex-grow: 1;
   display: -webkit-box;
   -webkit-line-clamp: 3;
-  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.6;
   max-height: 4.8em; /* Fallback untuk browser yang tidak mendukung line-clamp */
   display: -moz-box;
@@ -592,9 +592,9 @@ textarea {
   display: -ms-flexbox;
   -ms-line-clamp: 3;
   -ms-box-orient: vertical;
-  display: -webkit-flex;
-  -webkit-box-lines: multiple;
   text-overflow: -o-ellipsis-lastline;
+  text-overflow: ellipsis;
+  line-clamp: 3;
 }
 
 .event-detail {
@@ -2187,11 +2187,11 @@ textarea {
 
   .profile-main {
     padding: 0;
-    min-height: auto;
+    min-height: 0;
   }
 
   .profile-info {
-    min-height: auto;
+    min-height: 0;
     padding: 1.25rem;
   }
 }
