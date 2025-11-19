@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { handleApiResponse, mapBackendResponse } from "../utils/apiHelpers";
 
 const AuthContext = createContext(null);
 
@@ -40,21 +41,24 @@ export const AuthProvider = ({ children }) => {
       body: JSON.stringify({ email, password }),
     })
       .then(async (res) => {
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          return { success: false, message: json.message || "Login gagal" };
-        }
+        const json = await handleApiResponse(res, logout);
+
         // json.data: { token, user }
         const { token, user: userObj } = json.data || {};
-        const userToStore = { ...userObj, token };
+
+        // Map snake_case to camelCase
+        const userMapped = mapBackendResponse(userObj);
+        const userToStore = { ...userMapped, token };
+
         setUser(userToStore);
         localStorage.setItem("currentUser", JSON.stringify(userToStore));
+
         // Also ensure we keep a local copy of known users so components
         // that rely on `localStorage.users` (eg. RegistrationList) can
         // resolve user names/emails when showing participants.
         try {
           const users = JSON.parse(localStorage.getItem("users") || "[]");
-          const userNoSensitive = { ...userObj };
+          const userNoSensitive = { ...userMapped };
           delete userNoSensitive.password;
           const idx = users.findIndex((u) => u.id === userNoSensitive.id);
           if (idx >= 0) {
@@ -70,7 +74,10 @@ export const AuthProvider = ({ children }) => {
       })
       .catch((err) => {
         console.error("Login error:", err);
-        return { success: false, message: "Terjadi kesalahan saat login" };
+        return {
+          success: false,
+          message: err.message || "Terjadi kesalahan saat login",
+        };
       });
   };
 
@@ -89,13 +96,7 @@ export const AuthProvider = ({ children }) => {
       body: JSON.stringify(userData),
     })
       .then(async (res) => {
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          return {
-            success: false,
-            message: json.message || "Registrasi gagal",
-          };
-        }
+        const json = await handleApiResponse(res);
         return {
           success: true,
           message: "Registrasi berhasil! Silakan login.",
@@ -103,7 +104,10 @@ export const AuthProvider = ({ children }) => {
       })
       .catch((err) => {
         console.error("Register error:", err);
-        return { success: false, message: "Terjadi kesalahan saat registrasi" };
+        return {
+          success: false,
+          message: err.message || "Terjadi kesalahan saat registrasi",
+        };
       });
   };
 

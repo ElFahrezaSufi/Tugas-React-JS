@@ -1,26 +1,28 @@
+import {
+  getAuthHeader,
+  handleApiResponse,
+  mapBackendResponse,
+} from "../utils/apiHelpers";
+
 const DEFAULT_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
-function getAuthHeader() {
-  try {
-    const current = JSON.parse(localStorage.getItem("currentUser") || "null");
-    const token = current?.token || current?.authToken || null;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    return {};
-  }
-}
-
 function mapFromBackend(item) {
+  // Convert snake_case to camelCase first
+  const camelItem = mapBackendResponse(item);
+
+  // Map to frontend field names
   return {
-    id: item.id,
-    nama: item.name || item.nama || "",
-    tanggal: item.date || item.tanggal || "",
-    waktu: item.time || item.waktu || "",
-    lokasi: item.location || item.lokasi || "",
-    kategori: item.category || item.kategori || "",
-    deskripsi: item.description || item.deskripsi || "",
-    raw: item,
+    id: camelItem.id,
+    nama: camelItem.name || camelItem.nama || "",
+    tanggal: camelItem.date || camelItem.tanggal || "",
+    waktu: camelItem.time || camelItem.waktu || "",
+    lokasi: camelItem.location || camelItem.lokasi || "",
+    kategori: camelItem.category || camelItem.kategori || "",
+    deskripsi: camelItem.description || camelItem.deskripsi || "",
+    createdAt: camelItem.createdAt || camelItem.created_at || null,
+    updatedAt: camelItem.updatedAt || camelItem.updated_at || null,
+    raw: camelItem,
   };
 }
 
@@ -43,16 +45,14 @@ async function fetchEvents({ location, category, page = 1, limit = 10 } = {}) {
   if (limit) params.append("limit", limit);
 
   const res = await fetch(`${DEFAULT_BASE}/api/events?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch events");
-  const json = await res.json();
+  const json = await handleApiResponse(res);
   const items = (json.data?.items || json.data || []).map(mapFromBackend);
   return { ...json.data, items };
 }
 
 async function getEventById(id) {
   const res = await fetch(`${DEFAULT_BASE}/api/events/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch event");
-  const json = await res.json();
+  const json = await handleApiResponse(res);
   return mapFromBackend(json.data);
 }
 
@@ -63,11 +63,7 @@ async function createEvent(payload) {
     headers: { "Content-Type": "application/json", ...getAuthHeader() },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Failed to create event");
-  }
-  const json = await res.json();
+  const json = await handleApiResponse(res);
   return mapFromBackend(json.data);
 }
 
@@ -78,11 +74,7 @@ async function updateEvent(id, payload) {
     headers: { "Content-Type": "application/json", ...getAuthHeader() },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Failed to update event");
-  }
-  const json = await res.json();
+  const json = await handleApiResponse(res);
   return mapFromBackend(json.data);
 }
 
@@ -91,11 +83,7 @@ async function deleteEvent(id) {
     method: "DELETE",
     headers: { ...getAuthHeader() },
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Failed to delete event");
-  }
-  const json = await res.json();
+  const json = await handleApiResponse(res);
   return mapFromBackend(json.data);
 }
 
@@ -107,8 +95,7 @@ async function searchEvents(q = "", page = 1, limit = 10) {
   const res = await fetch(
     `${DEFAULT_BASE}/api/events/search?${params.toString()}`
   );
-  if (!res.ok) throw new Error("Failed to search events");
-  const json = await res.json();
+  const json = await handleApiResponse(res);
   const items = (json.data?.items || json.data || []).map(mapFromBackend);
   return { ...json.data, items };
 }
